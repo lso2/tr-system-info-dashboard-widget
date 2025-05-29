@@ -1,0 +1,278 @@
+/* TechReader System Info Dashboard Widget - Admin Styles */
+
+/* Main Dashboard Styles */
+.wp-system-info-dashboard { font-size: 13px; }
+.wp-system-info-section { margin-bottom: 20px; }
+.wp-system-info-section h4 { margin: 0 0 10px 0; padding: 8px 0; border-bottom: 1px solid #ddd; font-size: 14px; }
+.wp-system-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.wp-system-info-item { margin-bottom: 5px; }
+.wp-system-info-item strong { display: inline-block; min-width: 140px; }
+
+/* Database section - reduced label widths for more content space */
+.wp-system-info-item.db-section-right strong { min-width: 100px; }
+
+/* Progress Bars */
+.wp-system-info-progress { 
+	height: 20px; 
+	background: #f0f0f0; 
+	border-radius: 3px; 
+	overflow: hidden; 
+	margin-top: 3px; 
+	position: relative;
+}
+.wp-system-info-progress-bar { 
+	height: 100%; 
+	line-height: 20px; 
+	color: white; 
+	text-align: center; 
+	font-weight: bold; 
+	font-size: 12px;
+}
+
+/* Toggle Links */
+.wp-system-info-toggle { 
+	cursor: pointer; 
+	color: #0073aa; 
+	text-decoration: underline; 
+	font-size: 12px;
+}
+
+/* Collapsible Sections */
+.wp-system-info-collapsible { 
+	display: none; 
+	margin-top: 10px; 
+	padding: 10px; 
+	background: #f9f9f9; 
+	border-radius: 3px;
+}
+
+/* Status Colors */
+.wp-system-info-warning { color: #e66f00; }
+.wp-system-info-error { color: #dc3545; }
+.wp-system-info-success { color: #28a745; }
+
+/* Header Flex */
+.wp-system-info-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 10px;
+}
+.wp-system-info-header h4 {
+	margin: 0;
+}
+
+/* Toggle Layout */
+.wp-system-info-toggle-row {
+	display: table;
+	width: 100%;
+	margin-bottom: 10px;
+}
+.wp-system-info-toggle-cell {
+	display: table-cell;
+	width: 50%;
+}
+.wp-system-info-toggle-cell.right {
+	text-align: right;
+}
+
+/* Live Memory Monitor */
+.wp-system-info-live-memory {
+	padding: 10px;
+	background: #f0f8ff;
+	border-radius: 3px;
+	margin-top: 10px;
+	position: relative;
+}
+.wp-system-info-live-memory canvas {
+	width: 100%;
+	height: 80px;
+}
+.wp-system-info-memory-labels {
+	position: absolute;
+	top: 15px;
+	left: 15px;
+	font-size: 10px;
+	color: #0073aa;
+	font-weight: bold;
+	pointer-events: none;
+}
+
+/* Database Table */
+.wp-system-info-db-table {
+	width: 100%;
+	font-size: 12px;
+	border-collapse: collapse;
+}
+.wp-system-info-db-table thead tr {
+	background: #f0f0f0;
+	font-weight: bold;
+}
+.wp-system-info-db-table th,
+.wp-system-info-db-table td {
+	padding: 6px 8px;
+	border: 1px solid #ddd;
+}
+.wp-system-info-db-table th {
+	text-align: left;
+	padding: 8px;
+}
+.wp-system-info-db-table td.name {
+	font-family: monospace;
+}
+.wp-system-info-db-table td.size,
+.wp-system-info-db-table td.rows {
+	text-align: right;
+}
+.wp-system-info-db-table tbody tr:nth-child(even) {
+	background: #f9f9f9;
+}
+.wp-system-info-db-table tbody tr:nth-child(odd) {
+	background: white;
+}
+
+/* Plugin Grid - 4 columns */
+.wp-system-info-plugin-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 6px;
+	font-size: 12px;
+}
+.wp-system-info-plugin-item {
+	padding: 6px 8px;
+	background: #f8f9fa;
+	border-radius: 3px;
+	border: 1px solid #ddd;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	color: #333;
+	font-size: 12px;
+	line-height: 1.3;
+}
+.wp-system-info-plugin-item:nth-child(even) {
+	background: white;
+}
+.wp-system-info-plugin-item strong {
+	display: block;
+	margin-bottom: 2px;
+	font-weight: 600;
+}
+
+/* Scrollable containers */
+.wp-system-info-scroll {
+	max-height: 200px;
+	overflow-y: auto;
+}
+.wp-system-info-scroll.large {
+	max-height: 300px;
+}
+
+/* PHP Extensions Grid */
+.wp-system-info-extensions-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 5px;
+}
+.wp-system-info-extension-item {
+	font-size: 12px;
+	padding: 2px 5px;
+	background: #f0f0f0;
+	border-radius: 2px;
+}
+
+/* Memory Test Progress */
+.wp-system-info-test-progress {
+	position: fixed;
+	top: 32px;
+	right: 20px;
+	background: #0073aa;
+	color: white;
+	padding: 15px 20px;
+	border-radius: 5px;
+	box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+	z-index: 9999;
+	font-size: 14px;
+	font-weight: bold;
+}
+.wp-system-info-test-progress .details {
+	font-weight: normal;
+	margin-top: 5px;
+}
+
+
+/* Recent Test Display */
+.wp-system-info-recent-test {
+	margin: 10px 0;
+	padding: 10px;
+	background: #f8f9fa;
+	border-radius: 3px;
+	border-left: 3px solid #0073aa;
+}
+.wp-system-info-recent-test .timestamp {
+	font-weight: bold;
+	margin-bottom: 5px;
+}
+.wp-system-info-recent-test .stats {
+	font-size: 12px;
+}
+
+/* Plugin Memory Top 3 */
+.wp-system-info-top-plugins {
+	margin-bottom: 15px;
+	padding: 10px;
+	background: #f3f3f3;
+	border: 1px solid #cbcbcb;
+	border-radius: 3px;
+}
+.wp-system-info-top-plugins h5 {
+	margin: 0 0 8px 0;
+	font-size: 13px;
+}
+.wp-system-info-top-plugin {
+	padding: 5px;
+	margin-bottom: 3px;
+	background: white;
+	border-radius: 3px;
+	font-size: 12px;
+}
+
+/* PHP Extensions Grid */
+.wp-system-info-extensions-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 5px;
+}
+.wp-system-info-extension-item {
+	font-size: 12px;
+	padding: 2px 5px;
+	background: #f0f0f0;
+	border-radius: 2px;
+}
+
+/* OS Info Bottom Line */
+.wp-system-info-os-line {
+	margin-top: 10px;
+	font-size: 12px;
+	color: #666;
+	border-top: 1px solid #eee;
+	padding-top: 8px;
+}
+
+/* Developer Credits */
+.wp-system-info-credits {
+	margin-top: 20px;
+	padding-top: 15px;
+	border-top: 1px solid #ddd;
+	text-align: center;
+	font-size: 11px;
+	color: #888;
+	background: #fafafa;
+	padding: 10px;
+	border-radius: 3px;
+}
+.wp-system-info-credits a {
+	color: #0073aa;
+	text-decoration: none;
+}
+.wp-system-info-credits a:hover {
+	text-decoration: underline;
+}
