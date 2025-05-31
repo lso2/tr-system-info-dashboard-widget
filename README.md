@@ -95,22 +95,14 @@ This plugin is licensed under the **GPLv3** or later.
 
 ## 🌟 Support
 
-### Free Support
 - [WordPress.org Plugin Forum](https://wordpress.org/support/plugin/tr-system-info-dashboard-widget/)
 - [GitHub Issues](https://github.com/lso2/tr-system-info-dashboard-widget/issues)
-
-### Premium Support
-- Priority email support
-- Custom feature development
-- Installation assistance
-- Contact: [plugins@techreader.com](mailto:support@techreader.com)
 
 ## 🏢 About TechReader
 
 **TechReader** specializes in WordPress development, performance optimization, and technical solutions.
 
 - **Website**: [https://techreader.com](https://techreader.com)
-- **Email**: [plugins@techreader.com](mailto:contact@techreader.com)
 - **GitHub**: [@lso2](https://github.com/lso2)
 
 ---
