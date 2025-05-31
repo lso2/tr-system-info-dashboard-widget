@@ -31,25 +31,9 @@ A comprehensive WordPress system information plugin that provides real-time moni
 - **System Diagnostics**: Comprehensive server and environment analysis
 - **Performance Insights**: Detailed metrics for optimization opportunities
 
-<!-- 
-## 📸 Screenshots
+## 📸 Screenshot
 
-### Dashboard Overview
-![Dashboard Overview](assets/screenshot-1.png)
-*Main dashboard widget showing system overview and memory usage*
-
-### Live Memory Monitor
-![Live Memory Monitor](assets/screenshot-2.png)
-*Real-time memory graph with dynamic scaling*
-
-### Database Analysis
-![Database Analysis](assets/screenshot-3.png)
-*Complete database breakdown with table details*
-
-### Plugin Memory Tracking
-![Plugin Memory Tracking](assets/screenshot-4.png)
-*Individual plugin memory usage analysis*
--->
+![Screenshot](assets/screen.jpg)
 
 ## 🔧 Installation
 
