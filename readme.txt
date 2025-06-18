@@ -5,7 +5,7 @@ Tags: system info, memory monitor, performance, dashboard, admin
 Requires at least: 5.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.4.3
+Stable tag: 2.0.5
 License: GPLv3 or later
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -132,6 +132,92 @@ Yes! The plugin works alongside caching solutions and can actually help you moni
 
 == Changelog ==
 
+= 2.0.5 =
+* Enhanced: Memory test history now includes test configuration details (number of tests and interval)
+* Enhanced: Latest test result display shows test settings for better context
+* Enhanced: Historical test entries now display how each test was configured
+* Improved: Memory test analysis with complete test parameter tracking
+* Technical: Added test_count and interval_ms fields to test history entries
+* UI/UX: Better test result interpretation with configuration context
+
+= 2.0.4 =
+* Fixed: Settings page card hover jumping issue when hovering over popup elements
+* Fixed: Memory test popup positioning conflicts with card hover effects
+* Enhanced: Stable popup positioning that doesn't interfere with page layout
+* Technical: Improved CSS specificity for popup elements within cards
+* Technical: Added CSS containment rules to prevent layout recalculation issues
+* UI/UX: Smooth card interactions without popup interference
+
+= 2.0.3 =
+* Fixed: Cancel button functionality in memory test popup - now works properly
+* Fixed: Popup button interaction issues caused by CSS pointer-events conflicts
+* Enhanced: Memory test cancellation with proper confirmation dialogs
+* Enhanced: Popup button hover effects now work as expected
+* Technical: Resolved CSS specificity issues with fixed positioning and pointer events
+* Technical: Improved button targeting for popup vs inline cancel buttons
+* UI/UX: Consistent button behavior across all memory test interfaces
+
+= 2.0.2 =
+* Fixed: Memory test functionality now works on both dashboard and plugin settings pages
+* Fixed: Undefined array key warnings in admin footer for 'wpmb' and 'wpunity'
+* Fixed: WordPress security compliance - properly escaped wp_create_nonce output
+* Enhanced: Centralized memory test logic for consistent behavior across admin pages
+* Enhanced: Better error handling with fallback values for memory limit detection
+* Technical: Improved nonce handling and URL parameter management for memory tests
+* Technical: Removed debugging code for clean production deployment
+* Security: Enhanced output escaping for JavaScript embedded nonce values
+
+= 2.0.1 =
+* Major: Complete admin settings page redesign with modern card-based layout
+* Added: Dashboard widget sections preview - shows actual widget content in admin settings
+* Fixed: Migrated memory test functionality globally to it works on settings page and dashboard
+* Fixed: OS/Hostname/Server section styling to match original dashboard appearance
+* Enhanced: Plugin check compliance - fixed all escaping and sanitization 
+* Technical: Improved variable sanitization with proper validation
+* Technical: Enhanced security with proper output escaping throughout admin interface
+* Technical: Fixed direct database query caching warnings
+
+= 1.9.0 =
+* Added: Master "Toggle Dashboard Widget" control - toggles all sections and widget visibility
+* Added: Instant AJAX saving - settings save automatically when toggled
+* Fixed: Toggle Dashboard Widget state persistence - properly reflects enabled/disabled on reload
+* Fixed: Toggle Dashboard Widget styling - removed dark green border, uses same colors as other cards
+* Fixed: Toggle Dashboard Widget master control - now hides entire widget when disabled
+* Fixed: WP Limit/PHP Limit section styling with proper min-width and formatting
+* Changed: Menu title from "System Info Widget" to "System Info"
+
+= 1.7.0 =
+* Added: Click-to-toggle cards - entire card clickable with status tags (no complex toggle switches)
+* Added: Popup notifications with specific enable/disable messages
+* Added: Widget preview sections showing real system data in grid layout
+* Added: Header and footer integration with donation support
+* Enhanced: 6-card layout with combined Live Memory Monitor + Cron + Plugin Memory section
+* Enhanced: No more form submissions - everything happens in real-time
+* Technical: Uses actual section module files - no code duplication
+* UI/UX: Complete visual overhaul with focus on user experience
+* UI/UX: Widget sections display identically to dashboard in beautiful grid format
+
+= 1.6.0 =
+* Enhanced: Card-based design with hover effects and professional styling
+* Enhanced: Responsive design that works perfectly on mobile devices
+* Enhanced: Status tags in top-right corners (green "ENABLED", grey "DISABLED")
+* Enhanced: Loading states and success indicators for better user feedback
+* Enhanced: Accessibility improvements with keyboard navigation support
+* Fixed: All checkmarks removed from interface - clean design without visual clutter
+* Fixed: Donate button styling - consistent orange color throughout
+* Technical: Separated all JavaScript and CSS from PHP files for better maintainability
+* Technical: Added proper asset enqueuing with dashboard CSS/JS for identical widget appearance
+* UI/UX: Clean, modern design that matches WordPress admin styling
+* UI/UX: Menu moved to top-level position at bottom of admin menu
+
+= 1.5.0 =
+* Fixed: Memory usage section - added all missing memory data fields (wpmaxmb, phplimit, etc.)
+* Fixed: Live Memory Monitor - now displays functional real-time chart
+* Fixed: Memory Measurement Tool - fixed "Show History" toggle and "Start Memory Test" functionality
+* Fixed: Database Information - added missing theme_name and theme_version data
+* Technical: Improved AJAX error handling and user feedback
+* Technical: Enhanced security with nonce verification and proper sanitization
+
 = 1.4.3 =
 * Fixed: Memory test cancel functionality properly stops the automatic reload timer
 * Fixed: Cancel button prevents the test from continuing to restart
@@ -231,6 +317,24 @@ Yes! The plugin works alongside caching solutions and can actually help you moni
 * Initial release
 
 == Upgrade Notice ==
+
+= 2.0.5 =
+Enhanced memory test history with complete test configuration details for better analysis and context.
+
+= 2.0.4 =
+Fixed settings page card hover jumping issues and improved popup positioning stability.
+
+= 2.0.3 =
+Fixed cancel button functionality in memory test popup and resolved button interaction issues.
+
+= 2.0.2 =
+Fixed memory test functionality across all admin pages, resolved PHP warnings, and enhanced security compliance.
+
+= 1.9.7 =
+Critical fixes for PHP warnings, improved Toggle Dashboard Widget functionality, enhanced security compliance, and better styling consistency.
+
+= 1.7.0 =
+Major admin interface redesign with dashboard widget preview sections, master toggle control, and modern card-based layout with instant AJAX saving.
 
 = 1.4.2 =
 Fixed live memory monitor display and improved cancel functionality.

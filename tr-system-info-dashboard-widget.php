@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: System Info Dashboard Widget
-Version: 1.4.3
+Version: 2.0.5
 Description: Comprehensive WordPress system information plugin with memory monitoring, database analysis, and performance insights.
 Author: TechReader
 Author URI: https://techreader.com
@@ -18,7 +18,8 @@ if ( !function_exists( 'add_action' ) ) {
 defined('ABSPATH') OR exit;
 
 if ( is_admin() ) {	
-	define( 'TRSYSTEMDASHBOARDVER', '1.4.3' );
+	define( 'TRSYSTEMDASHBOARDVER', '2.0.5' );
+	define( 'TR_SYSTEM_INFO_FILE', __FILE__ );
 	
 	class WP_System_Info {
 		private $ipadr = "";
@@ -27,6 +28,14 @@ if ( is_admin() ) {
 		
 		public function __construct() {
 		$this->get_ip_address();
+		
+		// Include admin functionality
+		if ( is_admin() ) {
+			require_once plugin_dir_path( __FILE__ ) . 'admin.php';
+		}
+		
+		// Handle memory test actions early
+		add_action( 'admin_init', array( $this, 'handle_memory_test_actions' ) );
 			add_action( 'init', array( &$this, 'check_memory_limits' ) );
 			add_action( 'wp_dashboard_setup', array( &$this, 'add_dashboard_widget' ) );
 			if ( is_multisite() ) { 
@@ -41,11 +50,123 @@ if ( is_admin() ) {
 			add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
 			// Add AJAX handler for plugin initialization
 			add_action( 'wp_ajax_initialize_plugin_memory', array( $this, 'ajax_initialize_plugin_memory' ) );
+			// Add AJAX handler for memory settings
+			add_action( 'wp_ajax_save_memory_settings', array( $this, 'ajax_save_memory_settings' ) );
 		}
 
+		public function handle_memory_test_actions() {
+			// Only process memory test actions on admin pages
+			if ( !is_admin() || !current_user_can( 'manage_options' ) ) {
+				return;
+			}
+			
+			$current_test = sanitize_text_field( wp_unslash( $_GET['test'] ?? '' ) );
+			
+			if ( empty( $current_test ) ) {
+				return;
+			}
+			
+			// Verify nonce for all test actions
+			if ( !isset( $_GET['nonce'] ) || !wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['nonce'] ) ), 'memory_test' ) ) {
+				return;
+			}
+			
+			$measurement_settings = get_option( 'wp_system_info_measurement_settings', array( 'nomeas' => 10, 'secrel' => 2000 ) );
+			$measurements = get_option( 'wp_system_info_measurements', array() );
+			$history = get_option( 'wp_system_info_measurement_history', array() );
+			
+			switch ( $current_test ) {
+				case 'cancel':
+					delete_option( 'wp_system_info_measurements' );
+					delete_option( 'wp_system_info_current_test_plugins' );
+					$this->redirect_clean_url();
+					break;
+					
+				case 'reset':
+					delete_option( 'wp_system_info_measurements' );
+					delete_option( 'wp_system_info_current_test_plugins' );
+					$this->redirect_clean_url();
+					break;
+					
+				case 'clear_history':
+					delete_option( 'wp_system_info_measurement_history' );
+					$this->redirect_clean_url();
+					break;
+					
+				case 'start':
+					$measurements = array(); // Reset measurements
+					$measurements[] = round( memory_get_usage( true ) / 1024 / 1024, 2 );
+					update_option( 'wp_system_info_measurements', $measurements );
+					
+					// Save current active plugins for this test
+					$active_plugins = get_option('active_plugins', array());
+					update_option( 'wp_system_info_current_test_plugins', $active_plugins );
+					
+					// Redirect to clean URL to show test in progress
+					$this->redirect_clean_url();
+					break;
+					
+				case 'continue':
+					// Handle continue action but don't redirect - let JavaScript handle the flow
+					if ( count( $measurements ) < $measurement_settings['nomeas'] ) {
+						$measurements[] = round( memory_get_usage( true ) / 1024 / 1024, 2 );
+						update_option( 'wp_system_info_measurements', $measurements );
+						
+						// Check if test is now complete
+						if ( count( $measurements ) >= $measurement_settings['nomeas'] ) {
+							$this->complete_memory_test( $measurements, $history );
+							$this->redirect_clean_url();
+						}
+					}
+					break;
+			}
+		}
+		
+		private function complete_memory_test( $measurements, $history ) {
+			$measurement_settings = get_option( 'wp_system_info_measurement_settings', array( 'nomeas' => 10, 'secrel' => 2000 ) );
+			
+			$avg = round( array_sum( $measurements ) / count( $measurements ), 2 );
+			$min = min( $measurements );
+			$max = max( $measurements );
+			$range = round( $max - $min, 2 );
+			
+			$test_plugins = get_option( 'wp_system_info_current_test_plugins', array() );
+			$current_plugins = get_option('active_plugins', array());
+			$deactivated_plugins = array_diff( $test_plugins, $current_plugins );
+			
+			$history_entry = array(
+				'timestamp' => current_time( 'mysql' ),
+				'average' => $avg,
+				'min' => $min,
+				'max' => $max,
+				'range' => $range,
+				'measurements' => count( $measurements ),
+				'test_count' => $measurement_settings['nomeas'],
+				'interval_ms' => $measurement_settings['secrel'],
+				'deactivated_plugins' => $deactivated_plugins
+			);
+			
+			$history[] = $history_entry;
+			// Keep only last 10 history entries
+			if ( count( $history ) > 10 ) {
+				$history = array_slice( $history, -10 );
+			}
+			update_option( 'wp_system_info_measurement_history', $history );
+			
+			// Clear the measurements
+			delete_option( 'wp_system_info_measurements' );
+			delete_option( 'wp_system_info_current_test_plugins' );
+		}
+		
+		private function redirect_clean_url() {
+			$url = remove_query_arg( array( 'test', 'count', 'nonce' ) );
+			wp_redirect( $url );
+			exit;
+		}
+		
 		public function enqueue_admin_scripts( $hook ) {
-		// Only load on dashboard page
-		if ( $hook !== 'index.php' ) {
+		// Load on dashboard page and settings page
+		if ( $hook !== 'index.php' && $hook !== 'toplevel_page_system-info-widget-settings' ) {
 			return;
 		}
 		
@@ -74,6 +195,23 @@ if ( is_admin() ) {
 				'ajaxurl' => admin_url( 'admin-ajax.php' ),
 				'liveMemoryNonce' => wp_create_nonce( 'live_memory_nonce' ),
 				'initPluginsNonce' => wp_create_nonce( 'initialize_plugins_nonce' )
+			) );
+		}
+		
+		// Enqueue memory measurement tool JS
+		if ( file_exists( plugin_dir_path( __FILE__ ) . 'assets/memory-measurement-tool.js' ) ) {
+			wp_enqueue_script( 
+				'tr-system-info-memory-tool-js', 
+				plugin_dir_url( __FILE__ ) . 'assets/memory-measurement-tool.js', 
+				array( 'jquery' ), 
+				TRSYSTEMDASHBOARDVER, 
+				true 
+			);
+			
+			// Localize memory tool script
+			wp_localize_script( 'tr-system-info-memory-tool-js', 'memoryToolAjax', array(
+				'ajaxurl' => admin_url( 'admin-ajax.php' ),
+				'memorySettingsNonce' => wp_create_nonce( 'memory_settings_nonce' )
 			) );
 		}
 	}
@@ -126,6 +264,34 @@ if ( is_admin() ) {
 			wp_send_json_error( 'Unable to access plugin functions.' );
 		}
 		}
+
+	public function ajax_save_memory_settings() {
+		check_ajax_referer( 'memory_settings_nonce', 'nonce' );
+		
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Insufficient permissions' ) );
+		}
+		
+		$nomeas = intval( sanitize_text_field( wp_unslash( $_POST['nomeas'] ?? '10' ) ) );
+		$secrel = intval( sanitize_text_field( wp_unslash( $_POST['secrel'] ?? '2000' ) ) );
+		
+		if ($nomeas <= 0 || $nomeas > 100) {
+			wp_send_json_error( array( 'message' => 'Invalid measurements value' ) );
+		}
+		
+		if ($secrel < 500 || $secrel > 10000) {
+			wp_send_json_error( array( 'message' => 'Invalid interval value' ) );
+		}
+		
+		$settings = array( 'nomeas' => $nomeas, 'secrel' => $secrel );
+		$updated = update_option( 'wp_system_info_measurement_settings', $settings );
+		
+		if ( $updated || get_option( 'wp_system_info_measurement_settings' ) == $settings ) {
+			wp_send_json_success( array( 'message' => 'Settings saved!' ) );
+		} else {
+			wp_send_json_error( array( 'message' => 'Save failed' ) );
+		}
+	}
 
 		// Cron memory tracking
 		public function cron_memory_start() {
@@ -341,7 +507,7 @@ if ( is_admin() ) {
 			return $server_software;
 		}
 
-		private function get_system_info() {
+		public function get_system_info() {
 			global $wpdb;
 			
 			try {
@@ -454,22 +620,48 @@ if ( is_admin() ) {
 		}
 
 		public function dashboard_output() {
-			$this->check_memory_usage();
-			$system_info = $this->get_system_info();
-			$cron_logs = get_option( 'wp_system_info_cron_logs', array() );
-			$plugin_memory = get_option( 'wp_system_info_plugin_memory', array() );
-			
-			// Add some test data if sections are empty (for demonstration)
-			if (empty($cron_logs)) {
-				$cron_logs = array(
-					array(
-						'timestamp' => current_time('mysql'),
-						'peak_memory' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
-						'memory_used' => round(memory_get_usage(true) / 1024 / 1024, 2),
-						'execution_time' => 150.5
-					)
-				);
-			}
+		$this->check_memory_usage();
+		$system_info = $this->get_system_info();
+		$cron_logs = get_option( 'wp_system_info_cron_logs', array() );
+		$plugin_memory = get_option( 'wp_system_info_plugin_memory', array() );
+		
+		// Get widget settings
+		$settings = get_option( 'wp_system_info_widget_settings', array(
+		'master_widget_toggle' => 1,
+		'show_system_overview' => 1,
+		'show_memory_usage' => 1,
+		'show_live_memory_monitor' => 1,
+		'show_memory_measurement_tool' => 1,
+		'show_cron_memory_usage' => 1,
+		'show_plugin_memory_usage' => 1,
+		'show_database_information' => 1,
+		'show_php_configuration' => 1,
+		) );
+		
+		// Check if master widget toggle is disabled - if so, don't show the widget at all
+		if ( !isset($settings['master_widget_toggle']) || !$settings['master_widget_toggle'] ) {
+			?>
+			<div class="wp-system-info-dashboard">
+				<div style="padding: 20px; text-align: center; color: #666; background: #f9f9f9; border-radius: 8px;">
+					<h4 style="margin: 0 0 10px 0; color: #333;">📊 System Info Dashboard Widget</h4>
+					<p style="margin: 0;">This widget is currently disabled. Enable it in <a href="<?php echo esc_url( admin_url( 'admin.php?page=system-info-widget-settings' ) ); ?>">System Info Settings</a>.</p>
+				</div>
+			</div>
+			<?php
+			return;
+		}
+		
+		// Add some test data if sections are empty (for demonstration)
+		if (empty($cron_logs)) {
+		 $cron_logs = array(
+		  array(
+		   'timestamp' => current_time('mysql'),
+		   'peak_memory' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
+		   'memory_used' => round(memory_get_usage(true) / 1024 / 1024, 2),
+		  'execution_time' => 150.5
+		 )
+		);
+		}
 			
 			if (empty($plugin_memory)) {
 			$plugin_memory = array(
@@ -481,491 +673,38 @@ if ( is_admin() ) {
 			 'note' => 'Sample data - use Initialize button to track all active plugins'
 			 )
 			 );
-		}
+			}
+			
+			// Load section files
+			require_once plugin_dir_path( __FILE__ ) . 'sections/system-overview.php';
+			require_once plugin_dir_path( __FILE__ ) . 'sections/memory-usage.php';
+			require_once plugin_dir_path( __FILE__ ) . 'sections/live-memory-monitor.php';
+			require_once plugin_dir_path( __FILE__ ) . 'sections/memory-measurement-tool.php';
+			require_once plugin_dir_path( __FILE__ ) . 'sections/cron-memory-usage.php';
+			require_once plugin_dir_path( __FILE__ ) . 'sections/plugin-memory-usage.php';
+			require_once plugin_dir_path( __FILE__ ) . 'sections/database-information.php';
+			require_once plugin_dir_path( __FILE__ ) . 'sections/php-configuration.php';
+			
+			// Make instance available globally for sections that need it
+			global $wp_system_info_instance;
+			$wp_system_info_instance = $this;
 			
 			?>
 
 			<div class="wp-system-info-dashboard">
 				
-				<!-- System Overview -->
-				<div class="wp-system-info-section">
-					<h4>🖥️ System Overview</h4>
-					<div class="wp-system-info-grid">
-						<div>
-							<div class="wp-system-info-item">
-								<strong>WordPress:</strong> <?php echo esc_html( $system_info['wp_version'] ); ?>
-							</div>
-							<div class="wp-system-info-item">
-								<strong>PHP Version:</strong> <?php echo esc_html( $system_info['php_version'] ); ?>
-								<span class="wp-system-info-<?php echo version_compare( PHP_VERSION, '8.0', '>=' ) ? 'success' : 'warning'; ?>">
-									(<?php echo esc_html( PHP_INT_SIZE * 8 ); ?>-bit)
-								</span>
-							</div>
-							<div class="wp-system-info-item">
-								<strong>MySQL:</strong> <?php echo esc_html( $system_info['mysql_version'] ); ?>
-							</div>
-						</div>
-						<div>
-							<div class="wp-system-info-item">
-								<strong>SSL:</strong> 
-								<span class="wp-system-info-<?php echo $system_info['is_ssl'] ? 'success' : 'warning'; ?>">
-									<?php echo $system_info['is_ssl'] ? 'Enabled' : 'Disabled'; ?>
-								</span>
-							</div>
-							<div class="wp-system-info-item">
-								<strong>Multisite:</strong> <?php echo $system_info['is_multisite'] ? 'Yes' : 'No'; ?>
-							</div>
-							<div class="wp-system-info-item">
-								<strong>WP Debug:</strong> 
-								<span class="wp-system-info-<?php echo $system_info['wp_debug'] ? 'warning' : 'success'; ?>">
-									<?php echo $system_info['wp_debug'] ? 'Enabled' : 'Disabled'; ?>
-								</span>
-							</div>
-						</div>
-					</div>
-					<div class="wp-system-info-os-line">
-						<strong>OS:</strong> <?php echo esc_html( $system_info['os_info'] ); ?> | 
-						<strong>Hostname:</strong> <?php echo esc_html( $system_info['hostname'] ); ?> | 
-						<strong>Server:</strong> <?php echo esc_html( $system_info['server_software'] ); ?>
-					</div>
-				</div>
-
-
-			<script>
-				// Live memory monitoring functions
-				let memoryChart = null;
-				let memoryData = [];
-				let maxDataPoints = 30;
-
-				function initMemoryChart() {
-					const canvas = document.getElementById('wp-system-info-memory-chart');
-					if (!canvas) return;
-					const ctx = canvas.getContext('2d');
-					canvas.width = canvas.offsetWidth;
-					canvas.height = 80;
-					memoryChart = { canvas, ctx };
-					updateMemoryChart();
-				}
-
-				function updateMemoryChart() {
-					if (!memoryChart) return;
-					const { ctx, canvas } = memoryChart;
-					ctx.clearRect(0, 0, canvas.width, canvas.height);
-					if (memoryData.length < 2) return;
-					// Draw grid
-					ctx.strokeStyle = '#e0e0e0';
-					ctx.lineWidth = 1;
-					for (let i = 0; i < 5; i++) {
-						const y = (canvas.height / 4) * i;
-						ctx.beginPath();
-						ctx.moveTo(0, y);
-						ctx.lineTo(canvas.width, y);
-						ctx.stroke();
-					}
-					// Draw memory line
-					const maxMemory = Math.max(...memoryData.map(d => d.current));
-					const minMemory = Math.min(...memoryData.map(d => d.current));
-					const range = maxMemory - minMemory || 1;
-					ctx.strokeStyle = '#0073aa';
-					ctx.lineWidth = 2;
-					ctx.beginPath();
-					memoryData.forEach((data, index) => {
-						const x = (canvas.width / (memoryData.length - 1)) * index;
-						const y = canvas.height - ((data.current - minMemory) / range) * canvas.height;
-						if (index === 0) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }
-					});
-					ctx.stroke();
-				}
-
-				function fetchMemoryData() {
-					if (!ajaxurl) return;
-					fetch(ajaxurl, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-						body: 'action=get_live_memory&nonce=<?php echo esc_js( wp_create_nonce( 'live_memory_nonce' ) ); ?>'
-					})
-					.then(response => response.json())
-					.then(data => {
-						if (data.success) {
-							memoryData.push(data.data);
-							if (memoryData.length > maxDataPoints) memoryData.shift();
-							if (document.getElementById('current-memory')) document.getElementById('current-memory').textContent = data.data.current;
-							if (document.getElementById('peak-memory')) document.getElementById('peak-memory').textContent = data.data.peak;
-							updateMemoryChart();
-						}
-					}).catch(() => {});
-				}
-
-				if (typeof jQuery !== 'undefined') {
-					jQuery(document).ready(function() {
-						setTimeout(() => {
-							initMemoryChart();
-							fetchMemoryData();
-							setInterval(fetchMemoryData, 3000);
-						}, 100);
-					});
-				}
-
-				// Toggle functions for collapsible sections
-				function toggleSection(id) {
-					const element = document.getElementById(id);
-					if (element) {
-						element.style.display = element.style.display === 'block' ? 'none' : 'block';
-					}
-				}
-
-				function toggleSectionWithText(sectionId, toggleId) {
-					const element = document.getElementById(sectionId);
-					const toggle = document.getElementById(toggleId);
-					if (!element || !toggle) return;
-					
-					// Hide the other section if it's a table/plugin toggle
-					if (sectionId === 'db-tables' || sectionId === 'active-plugins') {
-						const otherSection = sectionId === 'db-tables' ? 'active-plugins' : 'db-tables';
-						const otherToggle = sectionId === 'db-tables' ? 'plugins-toggle' : 'tables-toggle';
-						const otherElement = document.getElementById(otherSection);
-						const otherToggleElement = document.getElementById(otherToggle);
-						
-						if (otherElement && otherElement.style.display === 'block') {
-							otherElement.style.display = 'none';
-							if (otherToggleElement && otherToggleElement.textContent.includes('Hide')) {
-								otherToggleElement.textContent = otherToggleElement.textContent.replace('Hide', 'Show');
-							}
-						}
-					}
-					
-					if (element.style.display === 'none' || element.style.display === '') {
-						element.style.display = 'block';
-						if (toggle.textContent.includes('Show')) {
-							toggle.textContent = toggle.textContent.replace('Show', 'Hide');
-						}
-					} else {
-						element.style.display = 'none';
-						if (toggle.textContent.includes('Hide')) {
-							toggle.textContent = toggle.textContent.replace('Hide', 'Show');
-						}
-					}
-				}
-
-				function initializePluginMemory() {
-					const button = document.getElementById('initialize-plugins');
-					const status = document.getElementById('initialize-status');
-					if (!button || !status || !ajaxurl) return;
-					
-					button.disabled = true;
-					button.textContent = 'Initializing...';
-					status.style.display = 'block';
-					status.textContent = 'Recording memory usage for all active plugins...';
-					
-					fetch(ajaxurl, {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-						body: 'action=initialize_plugin_memory&nonce=<?php echo esc_js( wp_create_nonce( 'initialize_plugins_nonce' ) ); ?>'
-					})
-					.then(response => response.json())
-					.then(data => {
-						if (data.success) {
-							status.textContent = data.data.message + ' Refresh the page to see updated data.';
-							status.style.color = '#28a745';
-							button.textContent = 'Initialized';
-							setTimeout(() => location.reload(), 2000);
-						} else {
-							status.textContent = 'Error: ' + (data.data || 'Unknown error');
-							status.style.color = '#dc3545';
-							button.disabled = false;
-							button.textContent = 'Initialize Plugin Memory Tracking';
-						}
-					})
-					.catch(error => {
-						status.textContent = 'Error initializing plugins.';
-						status.style.color = '#dc3545';
-						button.disabled = false;
-						button.textContent = 'Initialize Plugin Memory Tracking';
-					});
-				}
-
-				function cancelMemoryTest() {
-					if (!confirm('Are you sure you want to cancel the memory test?')) {
-						return false;
-					}
-					
-					// Clear the timeout to stop automatic reload
-					if (window.memoryTestTimer) {
-						clearTimeout(window.memoryTestTimer);
-						window.memoryTestTimer = null;
-					}
-					
-					// Update progress popup to show canceling
-					const progressPopup = document.querySelector('.wp-system-info-test-progress');
-					if (progressPopup) {
-						progressPopup.innerHTML = '🗑️ Memory Test Cancelled<br><div class="details">Cleaning up and redirecting...</div>';
-						progressPopup.style.backgroundColor = '#6c757d';
-					}
-					
-					return true; // Allow link to proceed
-				}
-			</script>				<!-- Memory Information -->
-				<div class="wp-system-info-section">
-					<h4>🧠 Memory Usage</h4>
-					<div class="wp-system-info-item">
-						<strong>Current Usage:</strong> <?php echo esc_html( $this->memory['usage'] ); ?> MB
-						<div class="wp-system-info-progress">
-							<div class="wp-system-info-progress-bar" style="width: <?php echo esc_attr( min( $this->memory['percent'], 100 ) ); ?>%; background-color: <?php echo esc_attr( $this->memory['color'] ); ?>;">
-								<?php echo esc_html( $this->memory['percent'] ); ?>%
-							</div>
-						</div>
-					</div>
-					<div class="wp-system-info-grid">
-						<div>
-							<div class="wp-system-info-item">
-								<strong>WP Limit:</strong> <?php echo esc_html( $this->memory['wpmb'] . $this->memory['wpunity'] ); ?>
-							</div>
-							<div class="wp-system-info-item">
-								<strong>WP Admin Limit:</strong> <?php echo esc_html( $this->memory['wpmaxmb'] . $this->memory['wpmaxunity'] ); ?>
-							</div>
-						</div>
-						<div>
-							<div class="wp-system-info-item">
-								<strong>PHP Limit:</strong> <?php echo esc_html( $this->memory['phplimit'] . $this->memory['phplimitunity'] ); ?>
-							</div>
-							<div class="wp-system-info-item">
-								<strong>Max Execution:</strong> <?php echo esc_html( $system_info['max_execution_time'] ); ?>s
-							</div>
-						</div>
-					</div>
-				</div>
-
-				<!-- Live Memory Graph -->
-				<div class="wp-system-info-section">
-					<h4>📊 Live Memory Monitor</h4>
-					<div class="wp-system-info-live-memory">
-						<canvas id="wp-system-info-memory-chart"></canvas>
-						<div id="wp-system-info-memory-stats" style="margin-top: 10px; font-size: 12px;">
-							<span>Current: <strong id="current-memory">--</strong> MB</span> | 
-							<span>Peak: <strong id="peak-memory">--</strong> MB</span>
-						</div>
-					</div>
-				</div>
-
-				<!-- Memory Measurement Tool -->
-				<div class="wp-system-info-section">
-					<h4>🔄 Memory Measurement Tool</h4>
-					<?php $this->render_memory_measurement_tool(); ?>
-				</div>
-
-
-
-				<!-- Cron Memory Usage -->
-				<div class="wp-system-info-section">
-					<div class="wp-system-info-header">
-						<h4 style="margin: 0;">⏰ Cron Job Memory Usage</h4>
-						<?php if ( !empty( $cron_logs ) ) : ?>
-							<span class="wp-system-info-toggle" id="cron-toggle" onclick="toggleSectionWithText('cron-logs', 'cron-toggle')">Hide Recent Logs (<?php echo count( $cron_logs ); ?> entries)</span>
-						<?php endif; ?>
-					</div>
-					<?php if ( !empty( $cron_logs ) ) : ?>
-					<div id="cron-logs" class="wp-system-info-collapsible" style="display: block;">
-							<?php foreach ( array_slice( $cron_logs, -10 ) as $log ) : ?>
-								<div style="margin-bottom: 5px; font-size: 12px; padding: 5px; background: #f8f9fa; border-radius: 3px;">
-									<strong><?php echo esc_html( $log['timestamp'] ); ?>:</strong>
-									Peak: <strong><?php echo esc_html( $log['peak_memory'] ); ?>MB</strong>, 
-									Used: <strong><?php echo esc_html( $log['memory_used'] ); ?>MB</strong>, 
-									Time: <strong><?php echo esc_html( $log['execution_time'] ); ?>ms</strong>
-								</div>
-							<?php endforeach; ?>
-						</div>
-					<?php else : ?>
-						<div style="padding: 10px; background: #f0f0f0; border-radius: 3px; font-size: 12px; color: #666;">
-							No cron job memory data available yet. Data will appear after WordPress cron jobs run.
-						</div>
-					<?php endif; ?>
-				</div>
-
-				<!-- Plugin Memory Usage -->
-				<div class="wp-system-info-section">
-				<div class="wp-system-info-header">
-				<h4 style="margin: 0;">🔌 Detailed Plugin Memory Usage</h4>
-				<?php if ( !empty( $plugin_memory ) ) : ?>
-				<span class="wp-system-info-toggle" id="plugin-toggle" onclick="toggleSectionWithText('plugin-memory', 'plugin-toggle')">Show Plugin Data (<?php echo count( $plugin_memory ); ?> plugins tracked)</span>
-				<?php endif; ?>
-				</div>
-				<div style="margin-bottom: 10px; padding: 8px; background: #f9f9f9; border-left: 3px solid #0073aa; border-radius: 3px;">
-					<div style="font-size: 12px; color: #555; margin-bottom: 8px; line-height: 1.4;">
-						<strong>Plugin Memory Initialization:</strong> Records current memory usage for all active plugins to establish baseline tracking. This captures the memory state at plugin activation for future comparison and analysis.
-					</div>
-					<button id="initialize-plugins" class="button-secondary" onclick="initializePluginMemory()" style="margin-bottom: 8px;">
-						Initialize Plugin Memory Tracking
-					</button>
-					<div id="initialize-status" style="font-size: 12px; color: #666; display: none;"></div>
-				</div>
-				<?php if ( !empty( $plugin_memory ) ) : ?>
-				 <?php
-				 // Get top 3 memory usage plugins
-				 $sorted_plugins = $plugin_memory;
-				 uasort($sorted_plugins, function($a, $b) {
-				 return ($b['memory_at_activation'] ?? 0) - ($a['memory_at_activation'] ?? 0);
-				 });
-				 $top_plugins = array_slice($sorted_plugins, 0, 3, true);
-				 
-				 // Check if any plugin has high memory usage (over 50MB)
-				 $has_high_usage = false;
-				 foreach ($top_plugins as $plugin => $data) {
-				  if (($data['memory_at_activation'] ?? 0) > 50) {
-				   $has_high_usage = true;
-				 break;
-				 }
-				 }
-				 ?>
-				 <?php if ( $has_high_usage && count($top_plugins) > 0 ) : ?>
-					<div class="wp-system-info-top-plugins">
-					<h5>Plugins with highest memory</h5>
-					<?php foreach ( $top_plugins as $plugin => $data ) : ?>
-						<?php if (($data['memory_at_activation'] ?? 0) > 50) : ?>
-						<div class="wp-system-info-top-plugin">
-							<strong><?php echo esc_html( $data['name'] ); ?>:</strong> <?php echo esc_html( $data['memory_at_activation'] ); ?>MB
-							<?php if ( isset( $data['note'] ) ) : ?>
-								<span style="color: #888; font-style: italic;"> (<?php echo esc_html( $data['note'] ); ?>)</span>
-							<?php endif; ?>
-						</div>
-						<?php endif; ?>
-					<?php endforeach; ?>
-					</div>
-				<?php else : ?>
-						<!-- <div style="font-style: italic; padding: 8px; text-align: center;">
-							No plugins detected with concerning memory usage<br>(all plugins using less than 50MB)
-						</div> -->
-				<?php endif; ?>
-					<div id="plugin-memory" class="wp-system-info-collapsible wp-system-info-scroll">
-						<?php foreach ( array_slice( $plugin_memory, -15 ) as $plugin => $data ) : ?>
-							<div style="margin-bottom: 5px; font-size: 12px; padding: 5px; background: #f8f9fa; border-radius: 3px;">
-								<strong><?php echo esc_html( $data['name'] ); ?>:</strong>
-								Activation: <strong><?php echo esc_html( $data['memory_at_activation'] ); ?>MB</strong>
-								<?php if ( isset( $data['deactivated_at'] ) ) : ?>
-									| Deactivation: <strong><?php echo esc_html( $data['memory_at_deactivation'] ); ?>MB</strong>
-								<?php endif; ?>
-								<br><small style="color: #666;">Activated: <?php echo esc_html( $data['activated_at'] ); ?></small>
-								<?php if ( isset( $data['note'] ) ) : ?>
-									<br><em style="color: #888; font-size: 11px;"><?php echo esc_html( $data['note'] ); ?></em>
-								<?php endif; ?>
-							</div>
-						<?php endforeach; ?>
-					</div><br>
-				<?php else : ?>
-					<div style="padding: 10px; background: #f0f0f0; border-radius: 3px; font-size: 12px; color: #666;">
-						No plugin memory tracking data available. Click "Initialize" to start tracking all active plugins.
-					</div>
-				<?php endif; ?>
-			</div>
-				<!-- Database Information -->
-				<div class="wp-system-info-section">
-					<h4>🗄️ Database Information</h4>
-					<div class="wp-system-info-grid">
-						<div>
-							<div class="wp-system-info-item db-section-left">
-								<strong>Total Size:</strong> <?php echo esc_html( $system_info['total_db_size'] ); ?>
-							</div>
-							<div class="wp-system-info-item db-section-left">
-								<strong>Table Count:</strong> <?php echo esc_html( $system_info['table_count'] ); ?>
-							</div>
-						</div>
-						<div>
-							<div class="wp-system-info-item db-section-right">
-								<strong>Theme:</strong> <?php echo esc_html( $system_info['theme_name'] ); ?> (<?php echo esc_html( $system_info['theme_version'] ); ?>)
-							</div>
-							<div class="wp-system-info-item db-section-right">
-								<strong>Active Plugins:</strong> <?php echo esc_html( $system_info['active_plugins_count'] ); ?>/<?php echo esc_html( $system_info['total_plugins_count'] ); ?>
-							</div>
-						</div>
-					</div>
-					<div class="wp-system-info-toggle-row">
-						<div class="wp-system-info-toggle-cell">
-							<span class="wp-system-info-toggle" id="tables-toggle" onclick="toggleSectionWithText('db-tables', 'tables-toggle')">Show Table Details (<?php echo count($system_info['table_data']); ?> tables)</span>
-						</div>
-						<div class="wp-system-info-toggle-cell right">
-							<span class="wp-system-info-toggle" id="plugins-toggle" onclick="toggleSectionWithText('active-plugins', 'plugins-toggle')">Show Active Plugins</span>
-						</div>
-					</div>
-					<div id="db-tables" class="wp-system-info-collapsible wp-system-info-scroll large">
-						<table class="wp-system-info-db-table">
-							<thead>
-								<tr>
-									<th>Table Name</th>
-									<th>Size</th>
-									<th>Rows</th>
-								</tr>
-							</thead>
-							<tbody>
-								<?php foreach ( $system_info['table_data'] as $table ) : ?>
-									<tr>
-										<td class="name"><?php echo esc_html( $table['name'] ); ?></td>
-										<td class="size"><?php echo esc_html( $table['size'] ); ?></td>
-										<td class="rows"><?php echo esc_html( number_format( $table['rows'] ) ); ?></td>
-									</tr>
-								<?php endforeach; ?>
-							</tbody>
-						</table>
-					</div>
-					<div id="active-plugins" class="wp-system-info-collapsible wp-system-info-scroll">
-						<div class="wp-system-info-plugin-grid">
-						<?php 
-						if (!function_exists('get_plugins') && file_exists(ABSPATH . 'wp-admin/includes/plugin.php')) {
-						require_once(ABSPATH . 'wp-admin/includes/plugin.php');
-						}
-						if (function_exists('get_plugins')) {
-						$all_plugins = get_plugins();
-						$active_plugins = get_option('active_plugins', array());
-						foreach ($active_plugins as $plugin_path) {
-						if (isset($all_plugins[$plugin_path])) {
-						$plugin = $all_plugins[$plugin_path];
-						echo '<div class="wp-system-info-plugin-item">';
-						echo '<strong>' . esc_html($plugin['Name']) . '</strong>';
-						echo '<div>v' . esc_html($plugin['Version']) . '</div>';
-						 echo '</div>';
-						 }
-						 }
-						} else {
-						 echo '<div style="grid-column: 1 / -1; font-size: 12px; color: #666; text-align: center;">Plugin information not available.</div>';
-						}
-						 ?>
-								</div>
-					</div>
-				</div>
-
-				<!-- PHP Configuration -->
-				<div class="wp-system-info-section">
-					<h4>⚙️ PHP Configuration</h4>
-					<div class="wp-system-info-grid">
-						<div>
-							<div class="wp-system-info-item">
-								<strong>Upload Max:</strong> <?php echo esc_html( $system_info['upload_max_filesize'] ); ?>
-							</div>
-							<div class="wp-system-info-item">
-								<strong>Post Max:</strong> <?php echo esc_html( $system_info['post_max_size'] ); ?>
-							</div>
-						</div>
-						<div>
-							<div class="wp-system-info-item">
-								<strong>Max Input Vars:</strong> <?php echo esc_html( $system_info['max_input_vars'] ); ?>
-							</div>
-							<div class="wp-system-info-item">
-								<strong>PHP Extensions:</strong> <?php echo esc_html( count( $system_info['php_extensions'] ) ); ?>
-							</div>
-						</div>
-					</div>
-					<div style="text-align: center; margin-top: 10px;">
-						<span class="wp-system-info-toggle" id="extensions-toggle" onclick="toggleSectionWithText('php-extensions', 'extensions-toggle')">Show PHP Extensions (<?php echo count($system_info['php_extensions']); ?> loaded)</span>
-					</div>
-					<div id="php-extensions" class="wp-system-info-collapsible wp-system-info-scroll">
-						<div class="wp-system-info-extensions-grid">
-							<?php foreach ($system_info['php_extensions'] as $extension) : ?>
-								<div class="wp-system-info-extension-item">
-									<?php echo esc_html($extension); ?>
-								</div>
-							<?php endforeach; ?>
-						</div>
-					</div>
-				</div>
-
+				<?php
+				// Render all sections using the new modular approach
+				render_system_overview_section($system_info, $settings);
+				render_memory_usage_section($this->memory, $system_info, $settings);
+				render_live_memory_monitor_section($settings);
+				render_memory_measurement_tool_section($settings);
+				render_cron_memory_usage_section($cron_logs, $settings);
+				render_plugin_memory_usage_section($plugin_memory, $settings);
+				render_database_information_section($system_info, $settings);
+				render_php_configuration_section($system_info, $settings);
+				?>
+				
 				<!-- Developer Credits -->
 				<div class="wp-system-info-credits">
 					<a href="#" target="_blank">System Info Dashboard Widget</a> &nbsp; | &nbsp; 
@@ -979,275 +718,22 @@ if ( is_admin() ) {
 			<?php
 			}
 
-		private function render_memory_measurement_tool() {
-			$settings = get_option( 'wp_system_info_measurement_settings', array( 'nomeas' => 10, 'secrel' => 2000 ) );
-			$measurements = get_option( 'wp_system_info_measurements', array() );
-			$history = get_option( 'wp_system_info_measurement_history', array() );
-			
-			$current_test = sanitize_text_field( wp_unslash( $_GET['test'] ?? '' ) );
-			$action = sanitize_text_field( wp_unslash( $_GET['action'] ?? '' ) );
-			
-			// Handle settings update
-			if ( isset($_POST['update_settings']) && isset($_POST['settings_nonce']) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['settings_nonce'] ) ), 'update_settings' ) ) {
-				$nomeas = intval( sanitize_text_field( wp_unslash( $_POST['nomeas'] ?? '10' ) ) );
-				$secrel = intval( sanitize_text_field( wp_unslash( $_POST['secrel'] ?? '2000' ) ) );
-				if ($nomeas > 0 && $nomeas <= 100) $settings['nomeas'] = $nomeas;
-				if ($secrel >= 500 && $secrel <= 10000) $settings['secrel'] = $secrel;
-				update_option('wp_system_info_measurement_settings', $settings);
-			}
-			
-			// Handle cancel test
-			if ( $current_test === 'cancel' && isset($_GET['nonce']) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['nonce'] ) ), 'memory_test' ) ) {
-				delete_option( 'wp_system_info_measurements' );
-				delete_option( 'wp_system_info_current_test_plugins' );
-				$measurements = array();
-				$url = remove_query_arg( array( 'test', 'count', 'nonce' ) );
-				?><script>window.location.href = '<?php echo esc_url( $url ); ?>';</script><?php
-				return;
-			}
-			
-			// Handle reset
-			if ( $current_test === 'reset' && isset($_GET['nonce']) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['nonce'] ) ), 'memory_test' ) ) {
-				delete_option( 'wp_system_info_measurements' );
-				delete_option( 'wp_system_info_current_test_plugins' );
-				$measurements = array();
-				$url = remove_query_arg( array( 'test', 'count', 'nonce' ) );
-				?><script>window.location.href = '<?php echo esc_url( $url ); ?>';</script><?php
-				return;
-			}
-			
-			// Handle clear history
-			if ( $current_test === 'clear_history' && isset($_GET['nonce']) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['nonce'] ) ), 'memory_test' ) ) {
-				delete_option( 'wp_system_info_measurement_history' );
-				$history = array();
-				$url = remove_query_arg( array( 'test', 'nonce' ) );
-				?><script>window.location.href = '<?php echo esc_url( $url ); ?>';</script><?php
-				return;
-			}
-			
-			if ( $current_test === 'start' && isset($_GET['nonce']) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['nonce'] ) ), 'memory_test' ) ) {
-				$measurements = array(); // Reset measurements
-				$measurements[] = round( memory_get_usage( true ) / 1024 / 1024, 2 );
-				update_option( 'wp_system_info_measurements', $measurements );
-				
-				// Save current active plugins for this test
-				$active_plugins = get_option('active_plugins', array());
-				update_option( 'wp_system_info_current_test_plugins', $active_plugins );
-			}
-			
-			$test_count = intval( sanitize_text_field( wp_unslash( $_GET['count'] ?? '1' ) ) );
-			if ( $current_test === 'continue' && count( $measurements ) < $settings['nomeas'] ) {
-				$measurements[] = round( memory_get_usage( true ) / 1024 / 1024, 2 );
-				update_option( 'wp_system_info_measurements', $measurements );
-			}
-			
-			// If test is complete, save to history and redirect to clean URL
-			if ( count( $measurements ) >= $settings['nomeas'] && !empty($measurements) && $current_test !== 'complete' ) {
-				$avg = round( array_sum( $measurements ) / count( $measurements ), 2 );
-				$min = min( $measurements );
-				$max = max( $measurements );
-				$range = round( $max - $min, 2 );
-				
-				$test_plugins = get_option( 'wp_system_info_current_test_plugins', array() );
-				$current_plugins = get_option('active_plugins', array());
-				$deactivated_plugins = array_diff( $test_plugins, $current_plugins );
-				
-				$history_entry = array(
-					'timestamp' => current_time( 'mysql' ),
-					'average' => $avg,
-					'min' => $min,
-					'max' => $max,
-					'range' => $range,
-					'measurements' => count( $measurements ),
-					'deactivated_plugins' => $deactivated_plugins
-				);
-				
-				$history[] = $history_entry;
-				// Keep only last 10 history entries
-				if ( count( $history ) > 10 ) {
-					$history = array_slice( $history, -10 );
-				}
-				update_option( 'wp_system_info_measurement_history', $history );
-				
-				// Clear the measurements and redirect to clean URL
-				delete_option( 'wp_system_info_measurements' );
-				delete_option( 'wp_system_info_current_test_plugins' );
-				$measurements = array();
-				
-				$url = remove_query_arg( array( 'test', 'count', 'nonce' ) );
-				?><script>window.location.href = '<?php echo esc_url( $url ); ?>';</script><?php
-				return;
-			}
-			
-			?>
-			<div style="padding: 8px 12px; background: #e7f3ff; border-left: 4px solid #0073aa; margin-bottom: 15px; font-size: 12px;">
-				<strong>How to use:</strong> This tool measures memory usage multiple times by automatically reloading the page. 
-				Use it to find memory-hungry plugins by deactivating suspicious plugins before starting the test, then comparing results. 
-				Higher "Max" values indicate potential memory issues.
-			</div>
-			<div style="padding: 10px; background: #f9f9f9; border-radius: 3px;">
-				<div style="margin-bottom: 10px;">
-					<strong>Settings:</strong>
-					<form method="post" style="display: inline;">
-						<?php wp_nonce_field( 'update_settings', 'settings_nonce' ); ?>
-						Measurements: <input type="number" name="nomeas" value="<?php echo esc_attr( $settings['nomeas'] ); ?>" min="1" max="100" style="width: 60px;">
-						Interval (ms): <input type="number" name="secrel" value="<?php echo esc_attr( $settings['secrel'] ); ?>" min="500" max="10000" style="width: 80px;">
-						<input type="submit" name="update_settings" value="Save" class="button-secondary">
-					</form>
-				</div>
-				
-				<?php if ( empty( $measurements ) ) : ?>
-					<a href="<?php echo esc_url( add_query_arg( array( 'test' => 'start', 'nonce' => wp_create_nonce( 'memory_test' ) ) ) ); ?>" class="button-primary">Start Memory Test</a>
-				<?php elseif ( count( $measurements ) < $settings['nomeas'] ) : ?>
-					<div class="wp-system-info-test-progress">
-						🔄 Memory Test in Progress<br>
-						<div class="details">
-							Measurement <?php echo esc_html( count( $measurements ) ); ?>/<?php echo esc_html( $settings['nomeas'] ); ?><br>
-							<div class="wp-system-info-progress" style="margin-top: 5px; width: 200px;">
-								<div class="wp-system-info-progress-bar" style="width: <?php echo esc_attr( round( count( $measurements ) / $settings['nomeas'] * 100 ) ); ?>%; background-color: white; color: #0073aa;">
-									<?php echo esc_html( round( count( $measurements ) / $settings['nomeas'] * 100 ) ); ?>%
-								</div>
-							</div>
-							Page will reload automatically...
-						</div>
-						<div style="margin-top: 10px;">
-							<a href="<?php echo esc_url( add_query_arg( array( 'test' => 'cancel', 'nonce' => wp_create_nonce( 'memory_test' ) ) ) ); ?>" class="button-secondary" style="border-color: #666; color: #666;" onclick="return cancelMemoryTest();">✕ Cancel Test</a>
-						</div>
-					</div>
-					<div>
-						<strong>Progress:</strong> <?php echo esc_html( count( $measurements ) ); ?>/<?php echo esc_html( $settings['nomeas'] ); ?> measurements
-						<div class="wp-system-info-progress" style="margin: 5px 0;">
-							<div class="wp-system-info-progress-bar" style="width: <?php echo esc_attr( round( count( $measurements ) / $settings['nomeas'] * 100 ) ); ?>%; background-color: #0073aa;">
-							<?php echo esc_html( round( count( $measurements ) / $settings['nomeas'] * 100 ) ); ?>%
-							</div>
-						</div>
-						<a href="<?php echo esc_url( add_query_arg( array( 'test' => 'start', 'nonce' => wp_create_nonce( 'memory_test' ) ) ) ); ?>" class="button-secondary">Restart Test</a>
-						<a href="<?php echo esc_url( add_query_arg( array( 'test' => 'cancel', 'nonce' => wp_create_nonce( 'memory_test' ) ) ) ); ?>" class="button-secondary" style="border-color: #666; color: #666; margin-left: 5px;" onclick="return cancelMemoryTest();">✕ Cancel Test</a>
-					</div>
-					<script>
-						window.memoryTestTimer = setTimeout(function() {
-							window.location.href = '<?php echo esc_url( add_query_arg( array( 'test' => 'continue', 'count' => count( $measurements ) + 1, 'nonce' => wp_create_nonce( 'memory_test' ) ) ) ); ?>';
-						}, <?php echo esc_js( $settings['secrel'] ); ?>);
-					</script>
-				<?php else : ?>
-					<div>
-						<?php
-						$avg = round( array_sum( $measurements ) / count( $measurements ), 2 );
-						$min = min( $measurements );
-						$max = max( $measurements );
-						$range = round( $max - $min, 2 );
-						?>
-						<div style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 3px; border-left: 3px solid #0073aa;">
-							<div style="font-weight: bold; margin-bottom: 5px;"><?php echo esc_html( current_time( 'Y-m-d H:i:s' ) ); ?></div>
-							<div style="font-size: 12px;">
-								<strong>Avg:</strong> <?php echo esc_html( $avg ); ?>MB | 
-								<strong>Min:</strong> <?php echo esc_html( $min ); ?>MB | 
-								<strong>Max:</strong> <?php echo esc_html( $max ); ?>MB | 
-								<strong>Range:</strong> <?php echo esc_html( $range ); ?>MB
-							</div>
-						</div>
-						<a href="<?php echo esc_url( add_query_arg( array( 'test' => 'reset', 'nonce' => wp_create_nonce( 'memory_test' ) ) ) ); ?>" class="button-secondary">New Test</a>
-					</div>
-				<?php endif; ?>
-				
-				<?php 
-				// Show latest test if history is available
-				if ( !empty( $history ) ) :
-					$latest_test = end( $history );
-				?>
-					<hr style="margin: 20px 0;">
-					<div class="wp-system-info-section">
-						<h4 style="margin: 0 0 10px 0;">📈 Latest Memory Test Result</h4>
-						<div class="wp-system-info-recent-test">
-							<div class="timestamp"><?php echo esc_html( $latest_test['timestamp'] ); ?></div>
-							<div class="stats">
-								<strong>Avg:</strong> <?php echo esc_html( $latest_test['average'] ); ?>MB | 
-								<strong>Min:</strong> <?php echo esc_html( $latest_test['min'] ); ?>MB | 
-								<strong>Max:</strong> <?php echo esc_html( $latest_test['max'] ); ?>MB | 
-								<strong>Range:</strong> <?php echo esc_html( $latest_test['range'] ); ?>MB
-							</div>
-							<?php if ( !empty( $latest_test['deactivated_plugins'] ) && is_array( $latest_test['deactivated_plugins'] ) ) : ?>
-								<div style="margin-top: 5px; font-size: 11px; color: #666;">
-									<strong>Plugins deactivated during test:</strong><br>
-									<?php
-									if (!function_exists('get_plugins') && file_exists(ABSPATH . 'wp-admin/includes/plugin.php')) {
-										require_once(ABSPATH . 'wp-admin/includes/plugin.php');
-									}
-									if (function_exists('get_plugins')) {
-										$all_plugins = get_plugins();
-										foreach ( $latest_test['deactivated_plugins'] as $plugin_path ) {
-										if ( isset( $all_plugins[$plugin_path] ) ) {
-										echo '• ' . esc_html( $all_plugins[$plugin_path]['Name'] ) . '<br>';
-										} else {
-										echo '• ' . esc_html( $plugin_path ) . '<br>';
-										}
-										}
-									} else {
-										echo esc_html( implode( ', ', $latest_test['deactivated_plugins'] ) );
-									}
-									?>
-								</div>
-							<?php endif; ?>
-						</div>
-					</div>
-					<hr style="margin: 15px 0;">
-					<div class="wp-system-info-header">
-					<h4 style="margin: 0;">Test History</h4>
-					<div>
-					<span class="wp-system-info-toggle" id="history-toggle" onclick="toggleSectionWithText('memory-history', 'history-toggle')">Show History (<?php echo count( $history ); ?> tests)</span>
-					</div>
-					</div>
-					<div id="memory-history" class="wp-system-info-collapsible wp-system-info-scroll large">
-						<?php foreach ( array_reverse( $history ) as $entry ) : ?>
-							<div style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; border-left: 3px solid #0073aa;">
-								<div style="font-weight: bold; margin-bottom: 5px;"><?php echo esc_html( $entry['timestamp'] ); ?></div>
-								<div style="font-size: 12px;">
-									<strong>Avg:</strong> <?php echo esc_html( $entry['average'] ); ?>MB | 
-									<strong>Min:</strong> <?php echo esc_html( $entry['min'] ); ?>MB | 
-									<strong>Max:</strong> <?php echo esc_html( $entry['max'] ); ?>MB | 
-									<strong>Range:</strong> <?php echo esc_html( $entry['range'] ); ?>MB
-								</div>
-								<?php if ( !empty( $entry['deactivated_plugins'] ) && is_array( $entry['deactivated_plugins'] ) ) : ?>
-									<div style="margin-top: 5px; font-size: 11px; color: #666;">
-										<strong>Plugins deactivated during test:</strong><br>
-										<?php
-										if (!function_exists('get_plugins') && file_exists(ABSPATH . 'wp-admin/includes/plugin.php')) {
-											require_once(ABSPATH . 'wp-admin/includes/plugin.php');
-										}
-										if (function_exists('get_plugins')) {
-											$all_plugins = get_plugins();
-											foreach ( $entry['deactivated_plugins'] as $plugin_path ) {
-											if ( isset( $all_plugins[$plugin_path] ) ) {
-											echo '• ' . esc_html( $all_plugins[$plugin_path]['Name'] ) . '<br>';
-											} else {
-											echo '• ' . esc_html( $plugin_path ) . '<br>';
-											}
-											}
-										} else {
-											echo esc_html( implode( ', ', $entry['deactivated_plugins'] ) );
-										}
-										?>
-									</div>
-								<?php endif; ?>
-							</div>
-						<?php endforeach; ?>
-					</div>
-					<div style="margin-top: 10px;">
-						<a href="<?php echo esc_url( add_query_arg( array( 'test' => 'clear_history', 'nonce' => wp_create_nonce( 'memory_test' ) ) ) ); ?>" class="button-secondary" onclick="return confirm('Are you sure you want to clear all test history?');">Clear History</a>
-					</div>
-				<?php endif; ?>
-			</div>
-			<?php
-		}
+
 		 
 		public function add_dashboard_widget() {
-			$servertime = gmdate( 'Y-m-d H:i:s' );
-			wp_add_dashboard_widget( 
-				'wp_system_info_dashboard', 
-				'System Information & Memory Monitor - ' . $servertime, 
-				array( &$this, 'dashboard_output' ) 
-			);
+		// Check if master widget toggle is disabled - if so, don't add the widget at all
+		$settings = get_option( 'wp_system_info_widget_settings', array( 'master_widget_toggle' => 1 ) );
+		if ( !isset($settings['master_widget_toggle']) || !$settings['master_widget_toggle'] ) {
+		return; // Don't add the widget if it's disabled
 		}
+		
+		 $servertime = gmdate( 'Y-m-d H:i:s' );
+		wp_add_dashboard_widget( 
+			'wp_system_info_dashboard', 
+			'System Information & Memory Monitor - ' . $servertime, 
+			array( &$this, 'dashboard_output' ) 
+		);
+	}
 		
 		private function format_memory_limit( $value ) {
 			$value = $value ?? '';
@@ -1290,8 +776,9 @@ if ( is_admin() ) {
 		}
 
 		public function add_admin_footer( $content ) {
+			$this->check_memory_limits();
 			$this->check_memory_usage();
-			$content .= ' | Memory: ' . $this->memory['usage'] . 'MB/' . $this->memory["wpmb"] . $this->memory["wpunity"] . ' (' . $this->memory['percent'] . '%)';
+			$content .= ' | Memory: ' . $this->memory['usage'] . 'MB/' . ($this->memory["wpmb"] ?? '0') . ($this->memory["wpunity"] ?? 'MB') . ' (' . ($this->memory['percent'] ?? '0') . '%)';
 			$content .= ' | PHP: ' . PHP_VERSION;
 			$content .= ' | Server: ' . $this->ipadr . $this->servername;
 			return $content;

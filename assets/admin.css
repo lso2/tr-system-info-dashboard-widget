@@ -179,8 +179,8 @@
 	border-radius: 2px;
 }
 
-/* Memory Test Progress */
-.wp-system-info-test-progress {
+/* Memory Test Progress - Fixed Popup (only first occurrence) */
+.wp-system-info-test-progress:first-of-type {
 	position: fixed;
 	top: 32px;
 	right: 20px;
@@ -192,13 +192,33 @@
 	z-index: 9999;
 	font-size: 14px;
 	font-weight: bold;
+	pointer-events: none;
+	transform: translate3d(0,0,0);
+	backface-visibility: hidden;
 }
-.wp-system-info-test-progress .details {
+.wp-system-info-test-progress:first-of-type .details {
 	font-weight: normal;
 	margin-top: 5px;
 }
 
+/* Allow pointer events on buttons and links inside the fixed popup */
+.wp-system-info-test-progress:first-of-type a,
+.wp-system-info-test-progress:first-of-type button,
+.wp-system-info-test-progress:first-of-type input {
+	pointer-events: auto;
+}
 
+/* Memory Test Progress - Inline version (any subsequent occurrences) */
+.wp-system-info-test-progress:not(:first-of-type) {
+	position: static;
+	padding: 15px;
+	background: #e7f3ff;
+	border: 2px solid #0073aa;
+	border-radius: 5px;
+	margin-bottom: 15px;
+	color: #333;
+	pointer-events: auto;
+}
 /* Recent Test Display */
 .wp-system-info-recent-test {
 	margin: 10px 0;
