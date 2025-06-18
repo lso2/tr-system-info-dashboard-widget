@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.5] - 2024-12-20
+## [2.0.5] - 2025-06-18
 
 ### Added
 - Test configuration details in memory test history (number of tests and interval)
@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical
 - Added `test_count` and `interval_ms` fields to test history entries
 
-## [2.0.4] - 2024-12-20
+## [2.0.4] - 2025-06-18
 
 ### Fixed
 - Settings page card hover jumping issue when hovering over popup elements
@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved CSS specificity for popup elements within cards
 - Added CSS containment rules to prevent layout recalculation issues
 
-## [2.0.3] - 2024-12-20
+## [2.0.3] - 2025-06-18
 
 ### Fixed
 - Cancel button functionality in memory test popup now works properly
@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolved CSS specificity issues with fixed positioning and pointer events
 - Improved button targeting for popup vs inline cancel buttons
 
-## [2.0.2] - 2024-12-20
+## [2.0.2] - 2025-06-18
 
 ### Fixed
 - Memory test functionality now works on both dashboard and plugin settings pages
@@ -68,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improved nonce handling and URL parameter management for memory tests
 - Removed debugging code for clean production deployment
 
-## [2.0.1] - 2024-12-19
+## [2.0.1] 2025-06-17
 
 ### Added
 - Dashboard widget sections preview - shows actual widget content in admin settings
@@ -86,7 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical
 - Fixed direct database query caching warnings
 
-## [1.9.0] - 2024-12-18
+## [1.9.0] - 2025-06-16
 
 ### Added
 - Master "Toggle Dashboard Widget" control - toggles all sections and widget visibility
@@ -101,7 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Menu title from "System Info Widget" to "System Info"
 
-## [1.7.0] - 2024-12-17
+## [1.7.0] - 2025-06-15
 
 ### Added
 - Click-to-toggle cards - entire card clickable with status tags
@@ -118,7 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical
 - Uses actual section module files - no code duplication
 
-## [1.6.0] - 2024-12-16
+## [1.6.0] 2025-06-14
 
 ### Added
 - Card-based design with hover effects and professional styling
@@ -139,7 +139,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Separated all JavaScript and CSS from PHP files for better maintainability
 - Added proper asset enqueuing with dashboard CSS/JS for identical widget appearance
 
-## [1.5.0] - 2024-12-15
+## [1.5.0] 2025-06-12
 
 ### Added
 - Missing memory data fields (wpmaxmb, phplimit, etc.) in memory usage section
@@ -153,7 +153,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AJAX error handling and user feedback
 - Security with nonce verification and proper sanitization
 
-## [1.4.3] - 2024-12-14
+## [1.4.3] 2025-06-11
 
 ### Added
 - Visual feedback when canceling (progress popup shows "Cancelled")
@@ -169,7 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical
 - Memory test timer stored in global variable for proper cancellation
 
-## [1.4.2] - 2024-12-13
+## [1.4.2] 2025-06-10
 
 ### Fixed
 - Live memory monitor chart displays properly without errors
@@ -179,7 +179,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 - Simplified memory chart rendering for better performance
 
-## [1.4.1] - 2024-12-12
+## [1.4.1] 2025-06-09
 
 ### Added
 - Cancel button for memory measurement test in progress
@@ -195,7 +195,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Memory test sessions can now be properly terminated by user
 - Test data cleanup when user cancels measurement process
 
-## [1.4.0] - 2024-12-11
+## [1.4.0] 2025-06-09
 
 ### Added
 - Proper asset enqueuing for both CSS and JS files
@@ -216,7 +216,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Version number consistency throughout plugin files
 - Removed redundant inline JavaScript from dashboard output
 
-## [1.3.7] - 2024-12-10
+## [1.3.7] - 2025-06-09
 
 ### Fixed
 - WordPress Plugin Check compliance issues
@@ -225,7 +225,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 - Security improvements and input validation
 
-## [1.3.6] - 2024-12-09
+## [1.3.6] - 2025-06-09
 
 ### Fixed
 - Plugin Check tool sanitization requirements
@@ -233,7 +233,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 - WordPress coding standards compliance
 
-## [1.3.5] - 2024-12-08
+## [1.3.5] - 2025-06-08
 
 ### Fixed
 - Plugin Check compliance issues
@@ -241,7 +241,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 - Input validation and output escaping
 
-## [1.3.4] - 2024-12-07
+## [1.3.4] - 2025-06-07
 
 ### Fixed
 - Security improvements and input validation
@@ -249,7 +249,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 - WordPress Plugin Check compliance
 
-## [1.3.3] - 2024-12-06
+## [1.3.3] - 2025-06-06
 
 ### Added
 - WordPress 6.8 compatibility
@@ -259,7 +259,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deprecated function replacements
 - Security improvements
 
-## [1.3.0] - 2024-12-05
+## [1.3.0] - 2025-06-05
 
 ### Added
 - Latest memory test results display
@@ -270,7 +270,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - User interface organization
 
-## [1.2.8] - 2024-12-04
+## [1.2.8] - 2025-06-04
 
 ### Added
 - Top memory usage plugins section
@@ -281,7 +281,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 - Plugin styling
 
-## [1.2.6] - 2024-12-03
+## [1.2.6] - 2025-06-03
 
 ### Fixed
 - Active plugins display layout
@@ -290,7 +290,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Database table styling
 - Memory test functionality
 
-## [1.2.5] - 2024-12-02
+## [1.2.5] - 2025-06-02
 
 ### Added
 - Clear history functionality
@@ -301,7 +301,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 - Toggle links state indication
 
-## [1.2.4] - 2024-12-01
+## [1.2.4] - 2025-06-01
 
 ### Added
 - Plugin memory tracking system
@@ -310,7 +310,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 - Memory measurement tools
 
-## [1.2.0] - 2024-11-30
+## [1.2.0] - 2025-05-31
 
 ### Added
 - Advanced OS and server detection
@@ -321,7 +321,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 - Memory measurement tools
 
-## [1.1.0] - 2024-11-29
+## [1.1.0] - 2025-05-31
 
 ### Added
 - Live memory monitoring
@@ -330,7 +330,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Complete plugin rewrite
 
-## [1.0.0] - 2024-11-28
+## [1.0.0] - 2025-05-31
 
 ### Added
 - Initial release
