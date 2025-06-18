@@ -137,10 +137,10 @@ git clone https://github.com/lso2/tr-system-info-dashboard-widget.git
 
 ### Recent Updates
 
-**v2.0.5** - Enhanced memory test history with test configuration details
-**v2.0.4** - Fixed settings page card hover jumping issues
-**v2.0.3** - Fixed cancel button functionality in memory test popup
-**v2.0.2** - Fixed memory test functionality across all admin pages
+- **v2.0.5** - Enhanced memory test history with test configuration details
+- **v2.0.4** - Fixed settings page card hover jumping issues
+- **v2.0.3** - Fixed cancel button functionality in memory test popup
+- **v2.0.2** - Fixed memory test functionality across all admin pages
 
 [View Full Changelog](CHANGELOG.md)
 
